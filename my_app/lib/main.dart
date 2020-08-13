@@ -1,87 +1,42 @@
-import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+// import 'package:url_launcher/url_launcher.dart';
+import 'package:web_scraper/web_scraper.dart';
 
-Future<Album> fetchAlbum() async {
-  final response =
-      await http.get('https://api.weather.gov/gridpoints/BGM/96,45/forecast');
-  // await http.get('https://jsonplaceholder.typicode.com/albums/1');
+void main() => runApp(WebScraperApp());
 
-  if (response.statusCode == 200) {
-    // If the server did return a 200 OK response,
-    // then parse the JSON.
-    return Album.fromJson(json.decode(response.body));
-  } else {
-    // If the server did not return a 200 OK response,
-    // then throw an exception.
-    throw Exception('Failed to load data');
-  }
-}
-
-class Album {
-  // final int userId;
-  // final int id;
-  // final String title;
-  final String name;
-  final int temp;
-  final String forc;
-  final String nameB;
-  final int tempB;
-  final String forcB;
-  final Object mappedData;
-  final Object allData;
-
-  // Album({this.userId, this.id, this.title});
-  Album(
-      {this.temp,
-      this.name,
-      this.forc,
-      this.tempB,
-      this.nameB,
-      this.forcB,
-      this.allData,
-      this.mappedData});
-
-  factory Album.fromJson(Map<String, dynamic> json) {
-    final mappedData = json['properties']['periods'].map((m) {
-      return "${m['name']} : ${m['temperature']} degrees. ${m['detailedForecast']}";
-    });
-
-    // var mappedQuestion = questionMap[0].answer['answers'].map((answer){
-    //   return 'This is the ${answer['text']}, and it\'s score is ${answer['score']}';
-    // });
-    return Album(
-      // userId: json['userId'],
-      // id: json['id'],
-      temp: json['properties']['periods'][0]['temperature'],
-      name: json['properties']['periods'][0]['name'],
-      forc: json['properties']['periods'][0]['detailedForecast'],
-      tempB: json['properties']['periods'][1]['temperature'],
-      nameB: json['properties']['periods'][1]['name'],
-      forcB: json['properties']['periods'][1]['detailedForecast'],
-      allData: mappedData,
-    );
-  }
-}
-
-void main() => runApp(MyApp());
-
-class MyApp extends StatefulWidget {
-  MyApp({Key key}) : super(key: key);
-
+class WebScraperApp extends StatefulWidget {
   @override
-  _MyAppState createState() => _MyAppState();
+  _WebScraperAppState createState() => _WebScraperAppState();
 }
 
-class _MyAppState extends State<MyApp> {
-  Future<Album> futureAlbum;
+class _WebScraperAppState extends State<WebScraperApp> {
+  // initialize WebScraper by passing base url of website
+  final webScraper = WebScraper('https://webscraper.io');
+
+  // Response of getElement is always List<Map<String, dynamic>>
+  List<Map<String, dynamic>> productNames;
+  List<Map<String, dynamic>> productDescriptions;
+
+  void fetchProducts() async {
+    // Loads web page and downloads into local state of library
+    if (await webScraper
+        .loadWebPage('/test-sites/e-commerce/allinone/computers/laptops')) {
+      setState(() {
+        // getElement takes the address of html tag/element and attributes you want to scrap from website
+        // it will return the attributes in the same order passed
+        productNames = webScraper.getElement(
+            'div.thumbnail > div.caption > h4 > a.title', ['href', 'title']);
+        productDescriptions = webScraper.getElement(
+            'div.thumbnail > div.caption > p.description', ['class']);
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    futureAlbum = fetchAlbum();
+    // Requesting to fetch before UI drawing starts
+    fetchProducts();
   }
 
   @override
@@ -92,50 +47,39 @@ class _MyAppState extends State<MyApp> {
         primarySwatch: Colors.blue,
       ),
       home: Scaffold(
-        appBar: AppBar(
-          title: Text('Narrowsburg, NY'),
-        ),
-        body: Center(
-          child: FutureBuilder<Album>(
-            future: futureAlbum,
-            builder: (context, snapshot) {
-              if (snapshot.hasData) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Card(
-                      child: Padding(
-                        padding: EdgeInsets.all(16.0),
-                        child: Text(
-                            "${snapshot.data.name} : ${snapshot.data.temp} Degrees. ${snapshot.data.forc}"),
-                      ),
-                    ),
-                    Card(
-                      child: Padding(
-                        padding: EdgeInsets.all(16.0),
-                        child: Text(
-                            "${snapshot.data.nameB} : ${snapshot.data.tempB} Degrees. ${snapshot.data.forcB}"),
-                      ),
-                    ),
-                    Card(
-                      child: Padding(
-                        padding: EdgeInsets.all(16.0),
-                        child: Text("${snapshot.data.allData}"),
-                      ),
-                    ),
-                  ],
-                );
-              } else if (snapshot.hasError) {
-                return Text("${snapshot.error}");
-              }
-
-              // By default, show a loading spinner.
-              return CircularProgressIndicator();
-            },
+          appBar: AppBar(
+            title: Text("Product Catalog"),
           ),
-        ),
-      ),
+          body: SafeArea(
+              child: productNames == null
+                  ? Center(
+                      child:
+                          CircularProgressIndicator(), // Loads Circular Loading Animation
+                    )
+                  : ListView.builder(
+                      itemCount: productNames.length,
+                      itemBuilder: (BuildContext context, int index) {
+                        // Attributes are in the form of List<Map<String, dynamic>>.
+                        // Map<String, dynamic> attributes =
+                        // productNames[index]['attributes'];
+                        return ExpansionTile(
+                          title: Text("attributes['title']"),
+                          children: <Widget>[
+                            Padding(
+                              padding: const EdgeInsets.all(10.0),
+                              child: Column(
+                                children: <Widget>[
+                                  Container(
+                                    child: Text(
+                                        "productDescriptions[index]['title']"),
+                                    margin: EdgeInsets.only(bottom: 10.0),
+                                  ),
+                                ],
+                              ),
+                            )
+                          ],
+                        );
+                      }))),
     );
   }
 }
